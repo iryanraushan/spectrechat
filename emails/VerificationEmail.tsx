@@ -5,9 +5,7 @@ import {
   Heading,
   Hr,
   Html,
-  Img,
   Link,
-  Preview,
   Section,
   Text,
 } from "@react-email/components";
