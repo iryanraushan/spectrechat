@@ -1,11 +1,14 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "../auth/[...nextauth]/options";
+import { authOptions } from "../../auth/[...nextauth]/options";
 import dbConnect from "@/lib/dbConnect";
 import UserModel from "@/model/User.model";
 import { User } from "next-auth";
-import mongoose from "mongoose";
 
-export async function GET(request: Request) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: { messageid: string } }
+) {
+  const messageid = params.messageid;
   await dbConnect();
 
   const session = getServerSession(authOptions);
@@ -23,32 +26,20 @@ export async function GET(request: Request) {
     );
   }
 
-  const userId = new mongoose.Types.ObjectId(user._id);
-
   try {
-    const user = await UserModel.aggregate([
-      {
-        $match: { id: userId },
-      },
-      {
-        $unwind: "$messages",
-      },
-      {
-        $sort: { "messages.createdAt": -1 },
-      },
-      {
-        $group: { _id: "$_id", messages: { $push: "$messages" } },
-      },
-    ]);
+    const updatedResult = await UserModel.updateOne(
+      { _id: user._id },
+      { $pull: { messages: { _id: messageid } } }
+    );
 
-    if (!user || user.length === 0) {
+    if (updatedResult.modifiedCount == 0) {
       return Response.json(
         {
           success: false,
-          message: "User not found",
+          message: "Message not found or already deleted",
         },
         {
-          status: 401,
+          status: 404,
         }
       );
     }
@@ -56,23 +47,20 @@ export async function GET(request: Request) {
     return Response.json(
       {
         success: true,
-        message: user[0].messages,
+        message: "Message deleted",
       },
       {
-        status: 200,
+        status: 404,
       }
     );
   } catch (error) {
-    console.log("An unexpected error occured : ", error);
-
     return Response.json(
       {
         success: false,
-        message: "An unexpected error occured : ",
-        error,
+        message: "Error deleting message",
       },
       {
-        status: 403,
+        status: 500,
       }
     );
   }
